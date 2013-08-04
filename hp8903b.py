@@ -154,6 +154,34 @@ class HP8903BWindow(Gtk.Window):
         self.source.set_increments(0.5, 1.0)
         source_box.pack_start(self.source, False, False, 0)
         left_vbox.pack_start(sourcef, False, False, 0)
+
+        hsep2 = Gtk.HSeparator()
+        left_vbox.pack_start(hsep2, False, False, 2)
+
+        filterf = Gtk.Frame(label = "Filters")
+        filterb = Gtk.Box(spacing = 2)
+        filtervb = Gtk.Box(spacing = 2, orientation = 'vertical')
+        filterf.add(filterb)
+        filterb.pack_start(filtervb, False, False, 0)
+
+        self.f30k = Gtk.CheckButton("30 kHz LP")
+        self.f80k = Gtk.CheckButton("80 kHz LP")
+
+        self.lpi = Gtk.CheckButton("Left Plug-in filter")
+        self.rpi = Gtk.CheckButton("Right Plug-in filter")
+
+        self.f30k.connect("toggled", self.filter1_callback)
+        self.f80k.connect("toggled", self.filter1_callback)
+
+        self.lpi.connect("toggled", self.filter2_callback)
+        self.rpi.connect("toggled", self.filter2_callback)
+        
+        filtervb.pack_start(self.f30k, False, False, 0)
+        filtervb.pack_start(self.f80k, False, False, 0)
+        filtervb.pack_start(self.lpi, False, False, 0)
+        filtervb.pack_start(self.rpi, False, False, 0)
+
+        left_vbox.pack_start(filterf, False, False, 0)
         
         hsep = Gtk.HSeparator()
         left_vbox.pack_start(hsep, False, False, 2)
@@ -221,6 +249,14 @@ class HP8903BWindow(Gtk.Window):
         x = []
         y = []
 
+        # 30, 80, LPI, RPI
+        filters = [False, False, False, False]
+        filters[0] = self.f30k.get_active()
+        filters[1] = self.f80k.get_active()
+        filters[2] = self.lpi.get_active()
+        filters[3] = self.rpi.get_active()
+        #print(filters)
+
         amp = self.source.get_value()
         
         strtf = self.start_freq.get_value()
@@ -239,7 +275,7 @@ class HP8903BWindow(Gtk.Window):
         lsteps = lsteps[(lsteps > strtf) & (lsteps < stopf)]
         
         for i in lsteps:
-            meas = self.send_measurement(i, amp)
+            meas = self.send_measurement(i, amp, filters)
             x.append(float(i))
             y.append(float(meas))
             self.update_plot(x, y)
@@ -271,10 +307,31 @@ class HP8903BWindow(Gtk.Window):
         print("HP 8903B Initialized")
         
         
-    def send_measurement(self, freq, amp):
+    def send_measurement(self, freq, amp, filters):
+        if (filters[0]):
+            fs1 = "L1"
+        elif (filters[1]):
+            fs1 = "L2"
+        else:
+            fs1 = "L0"
+
+        if (filters[2]):
+            fs2 = "H1"
+        elif (filters[3]):
+            fs2 = "H2"
+        else:
+            fs2 = "H0"
+
+        source_freq = ("FR%.4EHZ" % freq)
+        source_ampl = ("AP%.4EVL" % amp)
+        filter_s = fs1 + fs2
+
+        payload = source_freq + source_ampl + "M3LN" + filter_s + "LNT3"
+        #print(payload)
         #print("FR%.4EHZAP1VLM1LNL0LNT3" % freq)
         #print("FR%.4EHZAP%.4EVLM3LNL0LNT3" % (freq, amp))
-        self.ser.write(("FR%.4EHZAP%.4EVLM3LNL2LNT3" % (freq, amp)))
+        #self.ser.write(("FR%.4EHZAP%.4EVLM3LNL2LNT3" % (freq, amp)))
+        self.ser.write(payload)
         while (self.ser.inWaiting() < 12):
             #print(ser.inWaiting())
             while Gtk.events_pending():
@@ -284,9 +341,23 @@ class HP8903BWindow(Gtk.Window):
     def freq_callback(self, spinb):
         if (self.start_freq.get_value() > self.stop_freq.get_value()):
             self.start_freq.set_value(self.stop_freq.get_value())
-            
 
-    
+    # 30k/80k toggle
+    def filter1_callback(self, cb):
+        if (cb.get_active()):
+            if (cb.get_label() == "30 kHz LP"):
+                self.f80k.set_active(False)
+            elif (cb.get_label() == "80 kHz LP"):
+                self.f30k.set_active(False)
+
+    # left plugin/right plugin toggle
+    def filter2_callback(self, cb):
+        if (cb.get_active()):
+            if (cb.get_label() == "Left Plug-in filter"):
+                self.rpi.set_active(False)
+            elif (cb.get_label() == "Right Plug-in filter"):
+                self.lpi.set_active(False)
+
     def on_menu_file_quit(self, widget):
         if (self.ser != None):
             self.ser.close()
