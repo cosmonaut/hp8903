@@ -7,7 +7,9 @@ from matplotlib.backends.backend_gtk3cairo import FigureCanvasGTK3Cairo as Figur
 
 import serial
 import serial.tools.list_ports_posix
-    
+
+import math
+import numpy as np
 #from numpy import arange, sin, pi
 
 # This is just for the GPIB-232CV-A -- may not apply for other GPIB
@@ -76,15 +78,6 @@ class HP8903BWindow(Gtk.Window):
         con_hbox.pack_start(self.dcon_button, False, False, 0)
 
         left_vbox.pack_start(con_hbox, False, False, 0)
-
-        hsep = Gtk.HSeparator()
-        left_vbox.pack_start(hsep, False, False, 0)
-
-        self.run_button = Gtk.Button(label = "Start Sequence")
-        self.run_button.set_sensitive(False)
-        left_vbox.pack_start(self.run_button, False, False, 0)
-
-        self.run_button.connect("clicked", self.run_test)
         
         device_store = Gtk.ListStore(int, str)
         for i in range(len(self.devices)):
@@ -98,7 +91,62 @@ class HP8903BWindow(Gtk.Window):
         self.box.pack_start(device_label, False, False, 0)
         self.box.pack_start(self.device_combo, False, False, 0)
 
-        side_filler = Gtk.Box(spacing = 2, orientation = 'vertical')
+        hsep0 = Gtk.HSeparator()
+        left_vbox.pack_start(hsep0, False, False, 2)
+        
+        #side_filler = Gtk.Box(spacing = 2, orientation = 'vertical')
+        swconf = Gtk.Frame(label = "Sweep Control")
+        swhbox = Gtk.Box(spacing = 2)
+        swbox = Gtk.Box(spacing = 2, orientation = 'vertical')
+        swconf.add(swbox)
+        swhbox.pack_start(swconf, False, False, 0)
+        left_vbox.pack_start(swhbox, False, False, 0)
+        
+        startf = Gtk.Frame(label = "Start Frequency")
+        
+        self.start_freq = Gtk.SpinButton()
+        self.start_freq.set_range(20.0, 100000.0)
+        self.start_freq.set_digits(5)
+        self.start_freq.set_value(20.0)
+        self.start_freq.set_increments(100.0, 1000.0)
+
+        startf.add(self.start_freq)
+        #left_vbox.pack_start(startf, False, False, 0)
+        swbox.pack_start(startf, False, False, 0)
+        self.start_freq.connect("value_changed", self.freq_callback)
+        
+        stopf = Gtk.Frame(label = "Start Frequency")
+        
+        self.stop_freq = Gtk.SpinButton()
+        self.stop_freq.set_range(20.0, 100000.0)
+        self.stop_freq.set_digits(5)
+        self.stop_freq.set_value(30000.0)
+        self.stop_freq.set_increments(100.0, 1000.0)
+
+        stopf.add(self.stop_freq)
+        #left_vbox.pack_start(stopf, False, False, 0)
+        swbox.pack_start(stopf, False, False, 0)
+        self.stop_freq.connect("value_changed", self.freq_callback)
+
+        stepsf = Gtk.Frame(label = "Steps per Decade")
+        
+        self.steps = Gtk.SpinButton()
+        self.steps.set_range(1.0, 1000.0)
+        self.steps.set_digits(1)
+        self.steps.set_value(10.0)
+        self.steps.set_increments(1.0, 10.0)
+
+        stepsf.add(self.steps)
+        swbox.pack_start(stepsf, False, False, 0)
+        #left_vbox.pack_start(stepsf, False, False, 0)
+
+        hsep = Gtk.HSeparator()
+        left_vbox.pack_start(hsep, False, False, 2)
+        
+        self.run_button = Gtk.Button(label = "Start Sequence")
+        self.run_button.set_sensitive(False)
+        left_vbox.pack_start(self.run_button, False, False, 0)
+        self.run_button.connect("clicked", self.run_test)
         
         
         self.f = Figure(figsize=(5,4), dpi=100)
@@ -157,7 +205,23 @@ class HP8903BWindow(Gtk.Window):
         self.run_button.set_sensitive(False)
         x = []
         y = []
-        for i in (20.0, 40.0, 100.0, 500.0, 1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0, 9000.0, 18000.0, 20000.0, 22000.0):
+
+        strtf = self.start_freq.get_value()
+        stopf = self.stop_freq.get_value()
+
+        num_steps = self.steps.get_value_as_int()
+        step_size = 10**(1.0/num_steps)
+
+        strt_dec = math.floor(math.log10(strtf))
+        stop_dec = math.floor(math.log10(stopf))
+        
+        # print(step_size)
+        # print(math.floor(math.log10(self.start_freq.get_value())))
+        
+        lsteps = np.logspace(strt_dec, stop_dec + 1, num_steps*(stop_dec - strt_dec + 1))
+        lsteps = lsteps[(lsteps > strtf) & (lsteps < stopf)]
+        
+        for i in lsteps:
             meas = self.send_measurement(i)
             x.append(float(i))
             y.append(float(meas))
@@ -181,7 +245,8 @@ class HP8903BWindow(Gtk.Window):
         if (self.ser != None):
             self.ser.write("AP1VLM1LNL0LNT3")
         while (self.ser.inWaiting() < 12):
-            pass
+            while Gtk.events_pending():
+                Gtk.main_iteration_do(False)
 
         meas = self.ser.read(self.ser.inWaiting())
         print(meas)
@@ -193,10 +258,15 @@ class HP8903BWindow(Gtk.Window):
         #print("FR%.4EHZAP1VLM1LNL0LNT3" % freq)
         self.ser.write(("FR%.4EHZAP1VLM3LNL0LNT3" % freq))
         while (self.ser.inWaiting() < 12):
+            #print(ser.inWaiting())
             while Gtk.events_pending():
                  Gtk.main_iteration_do(False)
-            pass
         return self.ser.read(self.ser.inWaiting())
+
+    def freq_callback(self, spinb):
+        if (self.start_freq.get_value() > self.stop_freq.get_value()):
+            self.start_freq.set_value(self.stop_freq.get_value())
+            
 
     
     def on_menu_file_quit(self, widget):
