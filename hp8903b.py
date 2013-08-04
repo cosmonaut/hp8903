@@ -102,7 +102,7 @@ class HP8903BWindow(Gtk.Window):
         swhbox.pack_start(swconf, False, False, 0)
         left_vbox.pack_start(swhbox, False, False, 0)
         
-        startf = Gtk.Frame(label = "Start Frequency")
+        startf = Gtk.Frame(label = "Start Frequency (Hz)")
         
         self.start_freq = Gtk.SpinButton()
         self.start_freq.set_range(20.0, 100000.0)
@@ -115,7 +115,7 @@ class HP8903BWindow(Gtk.Window):
         swbox.pack_start(startf, False, False, 0)
         self.start_freq.connect("value_changed", self.freq_callback)
         
-        stopf = Gtk.Frame(label = "Start Frequency")
+        stopf = Gtk.Frame(label = "Stop Frequency (Hz)")
         
         self.stop_freq = Gtk.SpinButton()
         self.stop_freq.set_range(20.0, 100000.0)
@@ -140,6 +140,21 @@ class HP8903BWindow(Gtk.Window):
         swbox.pack_start(stepsf, False, False, 0)
         #left_vbox.pack_start(stepsf, False, False, 0)
 
+        hsep1 = Gtk.HSeparator()
+        left_vbox.pack_start(hsep1, False, False, 2)
+
+        sourcef = Gtk.Frame(label = "Source Control (V RMS)")
+        source_box = Gtk.Box(spacing = 2)
+        sourcef.add(source_box)
+        
+        self.source = Gtk.SpinButton()
+        self.source.set_range(0.0006, 6.0)
+        self.source.set_digits(4)
+        self.source.set_value(0.5)
+        self.source.set_increments(0.5, 1.0)
+        source_box.pack_start(self.source, False, False, 0)
+        left_vbox.pack_start(sourcef, False, False, 0)
+        
         hsep = Gtk.HSeparator()
         left_vbox.pack_start(hsep, False, False, 2)
         
@@ -206,6 +221,8 @@ class HP8903BWindow(Gtk.Window):
         x = []
         y = []
 
+        amp = self.source.get_value()
+        
         strtf = self.start_freq.get_value()
         stopf = self.stop_freq.get_value()
 
@@ -222,7 +239,7 @@ class HP8903BWindow(Gtk.Window):
         lsteps = lsteps[(lsteps > strtf) & (lsteps < stopf)]
         
         for i in lsteps:
-            meas = self.send_measurement(i)
+            meas = self.send_measurement(i, amp)
             x.append(float(i))
             y.append(float(meas))
             self.update_plot(x, y)
@@ -254,9 +271,10 @@ class HP8903BWindow(Gtk.Window):
         print("HP 8903B Initialized")
         
         
-    def send_measurement(self, freq):
+    def send_measurement(self, freq, amp):
         #print("FR%.4EHZAP1VLM1LNL0LNT3" % freq)
-        self.ser.write(("FR%.4EHZAP1VLM3LNL0LNT3" % freq))
+        #print("FR%.4EHZAP%.4EVLM3LNL0LNT3" % (freq, amp))
+        self.ser.write(("FR%.4EHZAP%.4EVLM3LNL2LNT3" % (freq, amp)))
         while (self.ser.inWaiting() < 12):
             #print(ser.inWaiting())
             while Gtk.events_pending():
