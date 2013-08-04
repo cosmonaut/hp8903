@@ -8,7 +8,7 @@ from matplotlib.backends.backend_gtk3cairo import FigureCanvasGTK3Cairo as Figur
 import serial
 import serial.tools.list_ports_posix
     
-from numpy import arange, sin, pi
+#from numpy import arange, sin, pi
 
 # This is just for the GPIB-232CV-A -- may not apply for other GPIB
 # interfaces
@@ -193,6 +193,8 @@ class HP8903BWindow(Gtk.Window):
         #print("FR%.4EHZAP1VLM1LNL0LNT3" % freq)
         self.ser.write(("FR%.4EHZAP1VLM3LNL0LNT3" % freq))
         while (self.ser.inWaiting() < 12):
+            while Gtk.events_pending():
+                 Gtk.main_iteration_do(False)
             pass
         return self.ser.read(self.ser.inWaiting())
 

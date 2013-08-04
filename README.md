@@ -12,3 +12,9 @@ converter.
 Currently only linux is tested and supported. Other operating systems
 should be able to user this software soon.
 
+Dependencies
+=====
+
+* matplotlib
+* pyserial
+* gobject (for GTK3)
