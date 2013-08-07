@@ -27,6 +27,27 @@ UI_INFO = """
 </ui>
 """
 
+HP8903_errors = {10: "Reading too large for display.",
+                 11: "Calculated value out of range.",
+                 13: "Notch cannot tune to input.",
+                 14: "Input level exceeds instrument specifications.",
+                 17: "Internal voltmeter cannot make measurement.",
+                 18: "Source cannot tune as requested.",
+                 19: "Cannot confirm source frequency.",
+                 20: "Entered value out of range.",
+                 21: "Invalid key sequence",
+                 22: "Invalid Special Function prefix.",
+                 23: "Invalid Special Function suffix.",
+                 24: "Invalid HP-IB code.",
+                 25: "Top and bottom plotter limits are identical.",
+                 26: "RATIO not allowd in present mode.",
+                 30: "Input overload detector tripped in range plot.",
+                 31: "Cannot make measurement.",
+                 32: "More than 255 points total in a sweep.",
+                 96: "No signal sensed at input."}
+                 
+                 
+
 class HP8903BWindow(Gtk.Window):
     def __init__(self):
         Gtk.Window.__init__(self, title="HP 8903B Control")
@@ -278,6 +299,7 @@ class HP8903BWindow(Gtk.Window):
             meas = self.send_measurement(i, amp, filters)
             x.append(float(i))
             y.append(float(meas))
+            print(float(meas))
             self.update_plot(x, y)
             # plot new measures
             print(meas)
@@ -296,7 +318,7 @@ class HP8903BWindow(Gtk.Window):
     def init_hp8903(self):
         self.ser.flushInput()
         if (self.ser != None):
-            self.ser.write("AP1VLM1LNL0LNT3")
+            self.ser.write("FR1000.0HZAP0.100E+00VLM1LNL0LNT3")
         while (self.ser.inWaiting() < 12):
             while Gtk.events_pending():
                 Gtk.main_iteration_do(False)
@@ -336,7 +358,15 @@ class HP8903BWindow(Gtk.Window):
             #print(ser.inWaiting())
             while Gtk.events_pending():
                  Gtk.main_iteration_do(False)
-        return self.ser.read(self.ser.inWaiting())
+
+        samp = self.ser.read(self.ser.inWaiting())
+        sampf = float(samp)
+        if (sampf > 4.0e9):
+            #print("Error: %.5E" % samp)
+            print(("Error: %s" % samp[4:6]) + " " + HP8903_errors[int(samp[4:6])])
+            samp = np.NAN
+
+        return(samp)
 
     def freq_callback(self, spinb):
         if (self.start_freq.get_value() > self.stop_freq.get_value()):
