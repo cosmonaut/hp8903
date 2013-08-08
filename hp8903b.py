@@ -6,6 +6,8 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_gtk3cairo import FigureCanvasGTK3Cairo as FigureCanvas
 from matplotlib.backends.backend_gtk3 import NavigationToolbar2GTK3 as NavigationToolbar
 
+from datetime import datetime
+
 import serial
 import serial.tools.list_ports_posix
 
@@ -21,6 +23,7 @@ UI_INFO = """
 <ui>
   <menubar name='MenuBar'>
     <menu action='FileMenu'>
+      <menuitem action='FileSave' />
     <separator />
       <menuitem action='FileQuit' />
     </menu>
@@ -47,7 +50,11 @@ HP8903_errors = {10: "Reading too large for display.",
                  32: "More than 255 points total in a sweep.",
                  96: "No signal sensed at input."}
                  
-                 
+
+HP8903_filters = ["30 kHz Low Pass",
+                  "80 kHz Low Pass",
+                  "Left Plug-in Filter",
+                  "Right Plug-in Filter"]
 
 class HP8903BWindow(Gtk.Window):
     def __init__(self):
@@ -61,10 +68,16 @@ class HP8903BWindow(Gtk.Window):
         action_group = Gtk.ActionGroup("my_actions")
         action_filemenu = Gtk.Action("FileMenu", "File", None, None)
         action_group.add_action(action_filemenu)
+        self.action_filesave = Gtk.Action("FileSave", "Save Data", None, None)
+        
         action_filequit = Gtk.Action("FileQuit", None, None, Gtk.STOCK_QUIT)
         action_filequit.connect("activate", self.on_menu_file_quit)
+        action_group.add_action(self.action_filesave)
         action_group.add_action(action_filequit)
+        self.action_filesave.set_sensitive(False)
+        self.action_filesave.connect('activate', self.save_data)
 
+        
         uimanager = self.create_ui_manager()
         uimanager.insert_action_group(action_group)
 
@@ -236,6 +249,7 @@ class HP8903BWindow(Gtk.Window):
         #self.hbox.pack_start(self.canvas, True, True, 0)
         self.hbox.pack_start(plot_vbox, True, True, 0)
 
+        self.measurements = None
 
     def setup_serial(self, button):
         print("serial!")
@@ -256,9 +270,9 @@ class HP8903BWindow(Gtk.Window):
 
             self.ser.flushInput()
             
-            self.run_button.set_sensitive(True)
-            
             self.init_hp8903()
+
+            self.run_button.set_sensitive(True)
 
         except:
             Exception("Failed to open serial device")
@@ -276,8 +290,9 @@ class HP8903BWindow(Gtk.Window):
 
     def run_test(self, button):
         self.run_button.set_sensitive(False)
-        x = []
-        y = []
+        self.action_filesave.set_sensitive(False)
+        self.x = []
+        self.y = []
         
         # 30, 80, LPI, RPI
         filters = [False, False, False, False]
@@ -313,14 +328,15 @@ class HP8903BWindow(Gtk.Window):
         
         for i in lsteps:
             meas = self.send_measurement(i, amp, filters)
-            x.append(float(i))
-            y.append(float(meas))
+            self.x.append(float(i))
+            self.y.append(float(meas))
             print(float(meas))
-            self.update_plot(x, y)
+            self.update_plot(self.x, self.y)
             # plot new measures
             print(meas)
 
         self.run_button.set_sensitive(True)
+        self.action_filesave.set_sensitive(True)
 
     def update_plot(self, x, y):
         if (len(self.plt) < 1):
@@ -341,11 +357,14 @@ class HP8903BWindow(Gtk.Window):
 
         meas = self.ser.read(self.ser.inWaiting())
         print(meas)
-        print(float(meas))
+        #print(float(meas))
         print("HP 8903B Initialized")
         
         
     def send_measurement(self, freq, amp, filters):
+        # Store parameters for saving after any measure
+        self.measurements = [amp, filters]
+        
         if (filters[0]):
             fs1 = "L1"
         elif (filters[1]):
@@ -384,6 +403,23 @@ class HP8903BWindow(Gtk.Window):
 
         return(samp)
 
+    def save_data(self, button):
+        fname = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        fid = open(fname + '.txt', 'w')
+
+        # Write source voltage info
+        source_v = str(self.measurements[0])
+        fid.write("# Source Voltage: " + source_v + " V RMS\n")
+        # write filter info
+        for n, f in enumerate(self.measurements[1]):
+            if f:
+                fid.write("# " + HP8903_filters[n] + " active\n")
+                
+        n = np.array([np.array(self.x), np.array(self.y)])
+        np.savetxt(fid, n.transpose(), fmt = ["%f", "%f"])
+        fid.close()
+        
+        
     def freq_callback(self, spinb):
         if (self.start_freq.get_value() > self.stop_freq.get_value()):
             self.start_freq.set_value(self.stop_freq.get_value())
