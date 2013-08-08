@@ -4,6 +4,7 @@ from gi.repository import Gtk, GObject
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_gtk3cairo import FigureCanvasGTK3Cairo as FigureCanvas
+from matplotlib.backends.backend_gtk3 import NavigationToolbar2GTK3 as NavigationToolbar
 
 import serial
 import serial.tools.list_ports_posix
@@ -226,7 +227,15 @@ class HP8903BWindow(Gtk.Window):
         
         self.canvas = FigureCanvas(self.f)
 
-        self.hbox.pack_start(self.canvas, True, True, 0)
+        toolbar = NavigationToolbar(self.canvas, self)
+
+        plot_vbox = Gtk.Box(spacing = 2, orientation = 'vertical')
+        plot_vbox.pack_start(self.canvas, True, True, 0)
+        plot_vbox.pack_start(toolbar, False, False, 0)
+        
+        #self.hbox.pack_start(self.canvas, True, True, 0)
+        self.hbox.pack_start(plot_vbox, True, True, 0)
+
 
     def setup_serial(self, button):
         print("serial!")
