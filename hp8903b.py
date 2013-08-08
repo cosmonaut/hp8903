@@ -278,7 +278,7 @@ class HP8903BWindow(Gtk.Window):
         self.run_button.set_sensitive(False)
         x = []
         y = []
-
+        
         # 30, 80, LPI, RPI
         filters = [False, False, False, False]
         filters[0] = self.f30k.get_active()
@@ -291,18 +291,25 @@ class HP8903BWindow(Gtk.Window):
         
         strtf = self.start_freq.get_value()
         stopf = self.stop_freq.get_value()
-
+        
         num_steps = self.steps.get_value_as_int()
         step_size = 10**(1.0/num_steps)
 
         strt_dec = math.floor(math.log10(strtf))
         stop_dec = math.floor(math.log10(stopf))
         
-        # print(step_size)
         # print(math.floor(math.log10(self.start_freq.get_value())))
         
-        lsteps = np.logspace(strt_dec, stop_dec + 1, num_steps*(stop_dec - strt_dec + 1))
-        lsteps = lsteps[(lsteps > strtf) & (lsteps < stopf)]
+        # lsteps = np.logspace(strt_dec, stop_dec + 1, num_steps*(stop_dec - strt_dec + 1))
+        # lsteps = lsteps[(lsteps >= strtf) & (lsteps <= stopf)]
+
+        decs = math.log10(stopf/strtf)
+        npoints = int(decs*num_steps)
+        lsteps = []
+        for n in range(npoints + 1):
+            lsteps.append(strtf*10.0**(float(n)/float(num_steps)))
+
+        self.a.set_xlim((lsteps[0]*10**(-2.0/10.0), lsteps[-1]*10**(2.0/10.0)))
         
         for i in lsteps:
             meas = self.send_measurement(i, amp, filters)
