@@ -16,5 +16,6 @@ Dependencies
 =====
 
 * matplotlib
+* numpy
 * pyserial
 * gobject (for GTK3)
