@@ -9,7 +9,7 @@ from matplotlib.backends.backend_gtk3 import NavigationToolbar2GTK3 as Navigatio
 from datetime import datetime
 
 import serial
-import serial.tools.list_ports_posix
+import serial.tools.list_ports as list_ports
 
 import math
 import numpy as np
@@ -62,7 +62,7 @@ class HP8903BWindow(Gtk.Window):
 
         # Serial connection!
         self.ser = None
-        self.devices = serial.tools.list_ports_posix.comports()
+        self.devices = list_ports.comports()
         
         # Menu Bar junk!
         action_group = Gtk.ActionGroup("my_actions")
