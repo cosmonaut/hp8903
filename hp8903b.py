@@ -308,6 +308,22 @@ class HP8903BWindow(Gtk.Window):
         #self.hbox.pack_start(self.canvas, True, True, 0)
         self.hbox.pack_start(plot_vbox, True, True, 0)
 
+        # Groups of widgets
+        self.measurement_widgets = [self.meas_combo, self.units_combo]
+        self.freq_sweep_widgets = [self.start_freq, self.stop_freq, self.steps]
+        self.source_widgets = [self.source]
+        self.filter_widgets = [self.f30k, self.f80k, self.lpi, self.rpi]
+
+        for w in self.measurement_widgets:
+            w.set_sensitive(False)
+        for w in self.freq_sweep_widgets:
+            w.set_sensitive(False)
+        for w in self.source_widgets:
+            w.set_sensitive(False)
+        for w in self.filter_widgets:
+            w.set_sensitive(False)
+
+        
         self.meas_string = "THD+n (%)"
         self.units_string = "%"
         self.measurements = None
@@ -334,6 +350,16 @@ class HP8903BWindow(Gtk.Window):
             self.init_hp8903()
 
             self.run_button.set_sensitive(True)
+            for w in self.measurement_widgets:
+                w.set_sensitive(True)
+            for w in self.freq_sweep_widgets:
+                w.set_sensitive(True)
+            for w in self.source_widgets:
+                w.set_sensitive(True)
+            for w in self.filter_widgets:
+                w.set_sensitive(True)
+
+
 
         except:
             Exception("Failed to open serial device")
@@ -347,11 +373,32 @@ class HP8903BWindow(Gtk.Window):
         if (self.ser != None):
             self.ser.close()
 
+        for w in self.measurement_widgets:
+            w.set_sensitive(False)
+        for w in self.freq_sweep_widgets:
+            w.set_sensitive(False)
+        for w in self.source_widgets:
+            w.set_sensitive(False)
+        for w in self.filter_widgets:
+            w.set_sensitive(False)
+
+            
         self.run_button.set_sensitive(False)
 
     def run_test(self, button):
         self.run_button.set_sensitive(False)
         self.action_filesave.set_sensitive(False)
+
+        for w in self.measurement_widgets:
+            w.set_sensitive(False)
+        for w in self.freq_sweep_widgets:
+            w.set_sensitive(False)
+        for w in self.source_widgets:
+            w.set_sensitive(False)
+        for w in self.filter_widgets:
+            w.set_sensitive(False)
+
+        
         self.x = []
         self.y = []
         
@@ -401,6 +448,16 @@ class HP8903BWindow(Gtk.Window):
             # plot new measures
             print(meas)
 
+        for w in self.measurement_widgets:
+            w.set_sensitive(True)
+        for w in self.freq_sweep_widgets:
+            w.set_sensitive(True)
+        for w in self.source_widgets:
+            w.set_sensitive(True)
+        for w in self.filter_widgets:
+            w.set_sensitive(True)
+
+            
         self.run_button.set_sensitive(True)
         self.action_filesave.set_sensitive(True)
 
@@ -476,7 +533,6 @@ class HP8903BWindow(Gtk.Window):
         samp = self.ser.read(self.ser.inWaiting())
         sampf = float(samp)
         if (sampf > 4.0e9):
-            #print("Error: %.5E" % samp)
             print(("Error: %s" % samp[4:6]) + " " + HP8903_errors[int(samp[4:6])])
             samp = np.NAN
 
@@ -567,7 +623,7 @@ class HP8903BWindow(Gtk.Window):
         # Updated plot
         self.a.set_ylabel(meas)
         self.canvas.draw()
-        
+
     # menu bar junk
     def create_ui_manager(self):
         uimanager = Gtk.UIManager()
