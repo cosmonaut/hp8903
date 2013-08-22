@@ -467,7 +467,21 @@ class HP8903BWindow(Gtk.Window):
         self.plt[0].set_data(x, y)
         ymin = min(y)
         ymax = max(y)
-        self.a.set_ylim((ymin - abs(ymin*0.10), ymax + abs(ymax*0.10)))
+
+        
+        # if (ymin == 0.0):
+        #     ymin = -0.01
+        # if (ymax == 0.0):
+        #     ymax = 0.01
+
+        sep = abs(ymax - ymin)
+        sep = sep/10.0
+
+        if (sep == 0.0):
+            sep = 0.01
+
+        #self.a.set_ylim((ymin - abs(ymin*0.10), ymax + abs(ymax*0.10)))
+        self.a.set_ylim((ymin - abs(sep), ymax + abs(sep)))
         self.canvas.draw()
             
     def init_hp8903(self):
