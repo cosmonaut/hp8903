@@ -440,13 +440,13 @@ class HP8903BWindow(Gtk.Window):
         self.measurements = [amp, filters, meas, units, self.meas_string, self.units_string]
         
         for i in lsteps:
-            meas = self.send_measurement(meas, units, i, amp, filters)
+            meas_point = self.send_measurement(meas, units, i, amp, filters)
             self.x.append(float(i))
-            self.y.append(float(meas))
-            print(float(meas))
+            self.y.append(float(meas_point))
+            print(float(meas_point))
             self.update_plot(self.x, self.y)
             # plot new measures
-            print(meas)
+            #print(meas_point)
 
         for w in self.measurement_widgets:
             w.set_sensitive(True)
