@@ -138,7 +138,7 @@ class HP8903BWindow(Gtk.Window):
         meas_box.pack_start(meas_vbox, False, False, 0)
 
         meas_store = Gtk.ListStore(int, str)
-        meas_dict = {0: "THD+n", 1:"Frequency Response"}
+        meas_dict = {0: "THD+n", 1:"Frequency Response", 2: "THD+n (Ratio)", 3: "Frequency Response (Ratio)"}
         for k, v in meas_dict.iteritems():
             meas_store.append([k, v])
         self.meas_combo = Gtk.ComboBox.new_with_model_and_entry(meas_store)
@@ -160,14 +160,23 @@ class HP8903BWindow(Gtk.Window):
 
         self.thd_units_store = Gtk.ListStore(int, str)
         self.ampl_units_store = Gtk.ListStore(int, str)
+        self.thdr_units_store = Gtk.ListStore(int, str)
+        self.amplr_units_store = Gtk.ListStore(int, str)
         thd_units_dict = {0: "%", 1: "dB"}
-        ampl_units_dict = {0: "V", 1: "dB V"}
+        ampl_units_dict = {0: "V", 1: "dBm"}
+        thdr_units_dict = {0: "%", 1: "dB"}
+        amplr_units_dict = {0: "%", 1:"dB"}
 
         for k, v in thd_units_dict.iteritems():
             self.thd_units_store.append([k, v])
         for k, v in ampl_units_dict.iteritems():
             self.ampl_units_store.append([k, v])
+        for k, v in thdr_units_dict.iteritems():
+            self.thdr_units_store.append([k, v])
+        for k, v in amplr_units_dict.iteritems():
+            self.amplr_units_store.append([k, v])
 
+            
         self.units_combo = Gtk.ComboBox.new_with_model_and_entry(self.thd_units_store)
         self.units_combo.set_entry_text_column(1)
         self.units_combo.set_active(0)
@@ -191,9 +200,10 @@ class HP8903BWindow(Gtk.Window):
         swconf = Gtk.Frame(label = "Sweep Control")
         swhbox = Gtk.Box(spacing = 2)
         swbox = Gtk.Box(spacing = 2, orientation = 'vertical')
-        swconf.add(swbox)
-        swhbox.pack_start(swconf, False, False, 0)
-        left_vbox.pack_start(swhbox, False, False, 0)
+        swconf.add(swhbox)
+        swhbox.pack_start(swbox, False, False, 0)
+        
+        left_vbox.pack_start(swconf, False, False, 0)
         
         startf = Gtk.Frame(label = "Start Frequency (Hz)")
         
@@ -236,6 +246,29 @@ class HP8903BWindow(Gtk.Window):
         hsep2 = Gtk.HSeparator()
         left_vbox.pack_start(hsep2, False, False, 2)
 
+        # Freq Control
+
+        freqf = Gtk.Frame(label = "Frequency")
+        freqbox = Gtk.Box(spacing = 2)
+        freqhbox = Gtk.Box(spacing = 2, orientation = 'vertical')
+
+        freqf.add(freqhbox)
+        freqhbox.pack_start(freqbox, False, False, 0)
+
+        self.freq = Gtk.SpinButton()
+        self.freq.set_range(20.0, 100000.0)
+        self.freq.set_digits(5)
+        self.freq.set_value(1000.0)
+        self.freq.set_increments(100.0, 1000.0)
+
+        self.freq.set_sensitive(False)
+        
+        freqbox.pack_start(self.freq, False, False, 0)
+        left_vbox.pack_start(freqf, False, False, 0)
+
+        freqhsep = Gtk.HSeparator()
+        left_vbox.pack_start(freqhsep, False, False, 2)
+        
         # Source Control
         sourcef = Gtk.Frame(label = "Source Control (V RMS)")
         source_box = Gtk.Box(spacing = 2)
@@ -329,7 +362,7 @@ class HP8903BWindow(Gtk.Window):
         self.measurements = None
 
     def setup_serial(self, button):
-        print("serial!")
+        #print("serial!")
         model = self.device_combo.get_model()
 
         tree_iter = self.device_combo.get_active_iter()
@@ -358,6 +391,7 @@ class HP8903BWindow(Gtk.Window):
                 w.set_sensitive(True)
             for w in self.filter_widgets:
                 w.set_sensitive(True)
+            #self.freq.set_sensitive(True)
 
 
 
@@ -381,7 +415,7 @@ class HP8903BWindow(Gtk.Window):
             w.set_sensitive(False)
         for w in self.filter_widgets:
             w.set_sensitive(False)
-
+        self.freq.set_sensitive(False)
             
         self.run_button.set_sensitive(False)
 
@@ -397,6 +431,7 @@ class HP8903BWindow(Gtk.Window):
             w.set_sensitive(False)
         for w in self.filter_widgets:
             w.set_sensitive(False)
+        self.freq.set_sensitive(False)
 
         
         self.x = []
@@ -423,7 +458,7 @@ class HP8903BWindow(Gtk.Window):
 
         meas = self.meas_combo.get_active()
         units = self.units_combo.get_active()
-        
+
         # print(math.floor(math.log10(self.start_freq.get_value())))
         
         # lsteps = np.logspace(strt_dec, stop_dec + 1, num_steps*(stop_dec - strt_dec + 1))
@@ -438,6 +473,18 @@ class HP8903BWindow(Gtk.Window):
         self.a.set_xlim((lsteps[0]*10**(-2.0/10.0), lsteps[-1]*10**(2.0/10.0)))
 
         self.measurements = [amp, filters, meas, units, self.meas_string, self.units_string]
+
+        center_freq = self.freq.get_value()
+        
+        if ((meas == 0) or (meas == 1)):
+            #pass
+            pt = self.send_measurement(meas, units, center_freq, amp, filters, ratio = 2)
+        elif ((meas == 2) or (meas == 3)):
+            pt = self.send_measurement(meas, units, center_freq, amp, filters)
+            #print(pt)
+            pt = self.send_measurement(meas, units, center_freq, amp, filters, ratio = 1)
+            #print("PT: %s" % pt)
+
         
         for i in lsteps:
             meas_point = self.send_measurement(meas, units, i, amp, filters)
@@ -456,7 +503,8 @@ class HP8903BWindow(Gtk.Window):
             w.set_sensitive(True)
         for w in self.filter_widgets:
             w.set_sensitive(True)
-
+        if (meas > 1):
+            self.freq.set_sensitive(True)
             
         self.run_button.set_sensitive(True)
         self.action_filesave.set_sensitive(True)
@@ -498,7 +546,7 @@ class HP8903BWindow(Gtk.Window):
         print("HP 8903B Initialized")
         
         
-    def send_measurement(self, meas, unit, freq, amp, filters):
+    def send_measurement(self, meas, unit, freq, amp, filters, ratio = 0):
         # Store parameters for saving after any measure
         #self.measurements = [amp, filters, meas, unit]
         measurement = ""
@@ -518,9 +566,9 @@ class HP8903BWindow(Gtk.Window):
         else:
             fs2 = "H0"
 
-        if (meas == 0):
+        if ((meas == 0) or (meas == 2)):
             measurement = "M3"
-        elif (meas == 1):
+        elif ((meas == 1) or (meas == 3)):
             measurement = "M1"
 
         if (unit == 0):
@@ -532,8 +580,14 @@ class HP8903BWindow(Gtk.Window):
         source_ampl = ("AP%.4EVL" % amp)
         filter_s = fs1 + fs2
 
+        rat = ""
+        if (ratio == 1):
+            rat = "R1"
+        elif (ratio == 2):
+            rat = "R0"
+        
         #payload = source_freq + source_ampl + "M3LN" + filter_s + "LNT3"
-        payload = source_freq + source_ampl + measurement + filter_s + meas_unit + "T3"
+        payload = source_freq + source_ampl + measurement + filter_s + meas_unit + rat + "T3"
         #print(payload)
         #print("FR%.4EHZAP1VLM1LNL0LNT3" % freq)
         #print("FR%.4EHZAP%.4EVLM3LNL0LNT3" % (freq, amp))
@@ -603,11 +657,26 @@ class HP8903BWindow(Gtk.Window):
             self.units_combo.set_active(0)
             self.a.set_ylabel("THD+n (%)")
             self.canvas.draw()
+            self.freq.set_sensitive(False)
         elif (meas_ind == 1):
             self.units_combo.set_model(self.ampl_units_store)
             self.units_combo.set_active(0)
             self.a.set_ylabel("AC Level (V RMS)")
             self.canvas.draw()
+            self.freq.set_sensitive(False)
+        elif (meas_ind == 2):
+            self.units_combo.set_model(self.thdr_units_store)
+            self.units_combo.set_active(0)
+            self.a.set_ylabel("THD+n Ratio (%)")
+            self.canvas.draw()
+            self.freq.set_sensitive(True)
+        elif (meas_ind == 3):
+            self.units_combo.set_model(self.amplr_units_store)
+            self.units_combo.set_active(0)
+            self.a.set_ylabel("AC Level Ratio (%)")
+            self.canvas.draw()
+            self.freq.set_sensitive(True)
+
 
     def units_changed(self, widget):
         meas_ind = self.meas_combo.get_active()
@@ -631,6 +700,22 @@ class HP8903BWindow(Gtk.Window):
             elif (units_ind == 1):
                 meas += "(dB V)"
                 self.units_string = "dB V"
+        elif (meas_ind == 2):
+            meas = "THD+n (Ratio) "
+            if (units_ind == 0):
+                meas += "(%)"
+                self.units_string = "%"
+            elif (units_ind == 1):
+                meas += "(dB)"
+                self.units_string = "dB"
+        elif (meas_ind == 3):
+            meas = "AC Level (Ratio) "
+            if (units_ind == 0):
+                meas += "(%)"
+                self.units_string = "%"
+            elif (units_ind == 1):
+                meas += "(dB)"
+                self.units_string = "dB"
 
         # Save text info about units
         self.meas_string = meas
