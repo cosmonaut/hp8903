@@ -29,8 +29,11 @@ Features
 
 * THD+n vs frequency
 * Amplitude vs frequency
+* Ratio-type sweeps
 
-Future features should include THD+n vs Power and THD+n vs
-voltage. Ratio-type relative measurements are also planned.
+Future features should include: 
+
+* THD+n vs Power and THD+n vs voltage.
+* pyvisa support
 
 
