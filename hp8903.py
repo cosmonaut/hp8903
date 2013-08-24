@@ -83,16 +83,20 @@ class HP8903BWindow(Gtk.Window):
 
         menubar = uimanager.get_widget("/MenuBar")
 
+        self.status_bar = Gtk.Statusbar()
+        self.status_bar.push(0, "HP 8903 Audio Analyzer Control")
         
         self.master_vbox = Gtk.Box(False, spacing = 2, orientation = 'vertical')
         self.master_vbox.pack_start(menubar, False, False, 0)
         master_hsep = Gtk.HSeparator()
         self.master_vbox.pack_start(master_hsep, False, False, 0)
         self.add(self.master_vbox)
-        
+
         self.hbox = Gtk.Box(spacing = 2)
         self.master_vbox.pack_start(self.hbox, True, True, 0)
 
+        self.master_vbox.pack_start(self.status_bar, False, False, 0)
+        
         bframe = Gtk.Frame(label = "Control")
         left_vbox = Gtk.Box(spacing = 2, orientation = 'vertical')
         self.box = Gtk.Box(spacing = 2)
@@ -710,6 +714,8 @@ class HP8903BWindow(Gtk.Window):
             print(("Error: %s" % samp[4:6]) + " " + HP8903_errors[int(samp[4:6])])
             samp = np.NAN
 
+        self.status_bar.push(0, "Freq: %f, Amp: %f, Return: %f,    GPIB: %s" % (freq, amp, sampf, payload))
+            
         return(samp)
 
     def save_data(self, button):
