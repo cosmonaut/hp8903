@@ -138,7 +138,11 @@ class HP8903BWindow(Gtk.Window):
         meas_box.pack_start(meas_vbox, False, False, 0)
 
         meas_store = Gtk.ListStore(int, str)
-        meas_dict = {0: "THD+n", 1:"Frequency Response", 2: "THD+n (Ratio)", 3: "Frequency Response (Ratio)"}
+        meas_dict = {0: "THD+n",
+                     1:"Frequency Response",
+                     2: "THD+n (Ratio)",
+                     3: "Frequency Response (Ratio)",
+                     4: "Ouput Level"}
         for k, v in meas_dict.iteritems():
             meas_store.append([k, v])
         self.meas_combo = Gtk.ComboBox.new_with_model_and_entry(meas_store)
@@ -162,10 +166,12 @@ class HP8903BWindow(Gtk.Window):
         self.ampl_units_store = Gtk.ListStore(int, str)
         self.thdr_units_store = Gtk.ListStore(int, str)
         self.amplr_units_store = Gtk.ListStore(int, str)
+        self.optlvl_units_store = Gtk.ListStore(int, str)
         thd_units_dict = {0: "%", 1: "dB"}
         ampl_units_dict = {0: "V", 1: "dBm"}
         thdr_units_dict = {0: "%", 1: "dB"}
         amplr_units_dict = {0: "%", 1:"dB"}
+        optlvl_units_dict = {0: "V"}
 
         for k, v in thd_units_dict.iteritems():
             self.thd_units_store.append([k, v])
@@ -175,6 +181,8 @@ class HP8903BWindow(Gtk.Window):
             self.thdr_units_store.append([k, v])
         for k, v in amplr_units_dict.iteritems():
             self.amplr_units_store.append([k, v])
+        for k, v in optlvl_units_dict.iteritems():
+            self.optlvl_units_store.append([k, v])
 
             
         self.units_combo = Gtk.ComboBox.new_with_model_and_entry(self.thd_units_store)
@@ -197,7 +205,7 @@ class HP8903BWindow(Gtk.Window):
 
         # Frequency Sweep Control
         #side_filler = Gtk.Box(spacing = 2, orientation = 'vertical')
-        swconf = Gtk.Frame(label = "Sweep Control")
+        swconf = Gtk.Frame(label = "Frequency Sweep Control")
         swhbox = Gtk.Box(spacing = 2)
         swbox = Gtk.Box(spacing = 2, orientation = 'vertical')
         swconf.add(swhbox)
@@ -285,6 +293,59 @@ class HP8903BWindow(Gtk.Window):
         hsep3 = Gtk.HSeparator()
         left_vbox.pack_start(hsep3, False, False, 2)
 
+
+        vswconf = Gtk.Frame(label = "Voltage Sweep Control")
+        vswhbox = Gtk.Box(spacing = 2)
+        vswbox = Gtk.Box(spacing = 2, orientation = 'vertical')
+        vswconf.add(vswhbox)
+        vswhbox.pack_start(vswbox, False, False, 0)
+        
+        left_vbox.pack_start(vswconf, False, False, 0)
+        
+        startv = Gtk.Frame(label = "Start Voltage (V)")
+        
+        self.start_v = Gtk.SpinButton()
+        self.start_v.set_range(0.0006, 6.0)
+        self.start_v.set_digits(5)
+        self.start_v.set_value(0.1)
+        self.start_v.set_increments(0.1, 1)
+
+        startv.add(self.start_v)
+        #left_vbox.pack_start(startf, False, False, 0)
+        vswbox.pack_start(startv, False, False, 0)
+        self.start_v.connect("value_changed", self.volt_callback)
+        
+        stopv = Gtk.Frame(label = "Stop Voltage (V)")
+        
+        self.stop_v = Gtk.SpinButton()
+        self.stop_v.set_range(0.0006, 6.0)
+        self.stop_v.set_digits(5)
+        self.stop_v.set_value(1.0)
+        self.stop_v.set_increments(0.1, 1.0)
+
+        stopv.add(self.stop_v)
+        #left_vbox.pack_start(stopf, False, False, 0)
+        vswbox.pack_start(stopv, False, False, 0)
+        self.stop_v.connect("value_changed", self.volt_callback)
+
+        stepsv = Gtk.Frame(label = "Total Samples")
+        
+        self.stepsv = Gtk.SpinButton()
+        self.stepsv.set_range(1.0, 1000.0)
+        self.stepsv.set_digits(1)
+        self.stepsv.set_value(10.0)
+        self.stepsv.set_increments(1.0, 10.0)
+
+        stepsv.add(self.stepsv)
+        vswbox.pack_start(stepsv, False, False, 0)
+        #left_vbox.pack_start(stepsf, False, False, 0)
+
+        hsepsv = Gtk.HSeparator()
+        left_vbox.pack_start(hsepsv, False, False, 2)
+
+
+
+        
         filterf = Gtk.Frame(label = "Filters")
         filterb = Gtk.Box(spacing = 2)
         filtervb = Gtk.Box(spacing = 2, orientation = 'vertical')
@@ -346,7 +407,8 @@ class HP8903BWindow(Gtk.Window):
         self.freq_sweep_widgets = [self.start_freq, self.stop_freq, self.steps]
         self.source_widgets = [self.source]
         self.filter_widgets = [self.f30k, self.f80k, self.lpi, self.rpi]
-
+        self.vsweep_widgets = [self.start_v, self.stop_v, self.stepsv]
+        
         for w in self.measurement_widgets:
             w.set_sensitive(False)
         for w in self.freq_sweep_widgets:
@@ -354,6 +416,8 @@ class HP8903BWindow(Gtk.Window):
         for w in self.source_widgets:
             w.set_sensitive(False)
         for w in self.filter_widgets:
+            w.set_sensitive(False)
+        for w in self.vsweep_widgets:
             w.set_sensitive(False)
 
         
@@ -391,6 +455,9 @@ class HP8903BWindow(Gtk.Window):
                 w.set_sensitive(True)
             for w in self.filter_widgets:
                 w.set_sensitive(True)
+            for w in self.vsweep_widgets:
+                w.set_sensitive(False)
+
             #self.freq.set_sensitive(True)
 
 
@@ -415,11 +482,15 @@ class HP8903BWindow(Gtk.Window):
             w.set_sensitive(False)
         for w in self.filter_widgets:
             w.set_sensitive(False)
+        for w in self.vsweep_widgets:
+            w.set_sensitive(False)
+
         self.freq.set_sensitive(False)
             
         self.run_button.set_sensitive(False)
 
     def run_test(self, button):
+        # Disable all control widgets during sweep
         self.run_button.set_sensitive(False)
         self.action_filesave.set_sensitive(False)
 
@@ -431,6 +502,9 @@ class HP8903BWindow(Gtk.Window):
             w.set_sensitive(False)
         for w in self.filter_widgets:
             w.set_sensitive(False)
+        for w in self.vsweep_widgets:
+            w.set_sensitive(False)
+
         self.freq.set_sensitive(False)
 
         
@@ -459,22 +533,35 @@ class HP8903BWindow(Gtk.Window):
         meas = self.meas_combo.get_active()
         units = self.units_combo.get_active()
 
-        # print(math.floor(math.log10(self.start_freq.get_value())))
-        
-        # lsteps = np.logspace(strt_dec, stop_dec + 1, num_steps*(stop_dec - strt_dec + 1))
-        # lsteps = lsteps[(lsteps >= strtf) & (lsteps <= stopf)]
-
-        decs = math.log10(stopf/strtf)
-        npoints = int(decs*num_steps)
         lsteps = []
-        for n in range(npoints + 1):
-            lsteps.append(strtf*10.0**(float(n)/float(num_steps)))
+        vsteps = []
+        if ((meas < 4) and (meas >= 0)):
+            decs = math.log10(stopf/strtf)
+            npoints = int(decs*num_steps)
 
-        self.a.set_xlim((lsteps[0]*10**(-2.0/10.0), lsteps[-1]*10**(2.0/10.0)))
+            for n in range(npoints + 1):
+                lsteps.append(strtf*10.0**(float(n)/float(num_steps)))
+                
+            self.a.set_xlim((lsteps[0]*10**(-2.0/10.0), lsteps[-1]*10**(2.0/10.0)))
+            self.a.set_xscale('log')
+        elif (meas == 4):
+            start_amp = self.start_v.get_value()
+            stop_amp = self.stop_v.get_value()
+            num_vsteps = self.stepsv.get_value()
+            vsteps = np.linspace(start_amp, stop_amp, num_vsteps)
+            amp_buf = ((stop_amp - start_amp)*0.1)/2.0
+            print(amp_buf)
+            self.a.set_xlim(((start_amp - amp_buf), (stop_amp + amp_buf)))
+            self.a.set_xscale('linear')
+            # print(start_amp)
+            # print(stop_amp)
+            # print(num_vsteps)
 
-        self.measurements = [amp, filters, meas, units, self.meas_string, self.units_string]
 
         center_freq = self.freq.get_value()
+            
+        # center freq...
+        self.measurements = [amp, filters, meas, units, self.meas_string, self.units_string]
         
         if ((meas == 0) or (meas == 1)):
             #pass
@@ -484,28 +571,47 @@ class HP8903BWindow(Gtk.Window):
             #print(pt)
             pt = self.send_measurement(meas, units, center_freq, amp, filters, ratio = 1)
             #print("PT: %s" % pt)
+        elif (meas == 4):
+            pt = self.send_measurement(meas, units, center_freq, start_amp, filters, ratio = 2)
 
+        if ((meas < 4) and (meas >= 0)):
+            for i in lsteps:
+                meas_point = self.send_measurement(meas, units, i, amp, filters)
+                self.x.append(float(i))
+                self.y.append(float(meas_point))
+                print(float(meas_point))
+                self.update_plot(self.x, self.y)
+                # plot new measures
+                #print(meas_point)
+        elif (meas == 4):
+            #pass
+            for v in vsteps:
+                meas_point = self.send_measurement(meas, units, center_freq, v, filters)
+                self.x.append(v)
+                self.y.append(float(meas_point))
+                print("in: %f, out %f" % (v, float(meas_point)))
+                self.update_plot(self.x, self.y)
         
-        for i in lsteps:
-            meas_point = self.send_measurement(meas, units, i, amp, filters)
-            self.x.append(float(i))
-            self.y.append(float(meas_point))
-            print(float(meas_point))
-            self.update_plot(self.x, self.y)
-            # plot new measures
-            #print(meas_point)
 
         for w in self.measurement_widgets:
             w.set_sensitive(True)
-        for w in self.freq_sweep_widgets:
-            w.set_sensitive(True)
-        for w in self.source_widgets:
-            w.set_sensitive(True)
         for w in self.filter_widgets:
             w.set_sensitive(True)
-        if (meas > 1):
-            self.freq.set_sensitive(True)
             
+        # for w in self.freq_sweep_widgets:
+        #     w.set_sensitive(True)
+        # for w in self.source_widgets:
+        #     w.set_sensitive(True)
+        # for w in self.filter_widgets:
+        #     w.set_sensitive(True)
+        # for w in self.vsweep_widgets:
+        #     w.set_sensitive(True)
+
+        # if (meas > 1):
+        #     self.freq.set_sensitive(True)
+
+        self.meas_changed("")
+        
         self.run_button.set_sensitive(True)
         self.action_filesave.set_sensitive(True)
 
@@ -568,7 +674,7 @@ class HP8903BWindow(Gtk.Window):
 
         if ((meas == 0) or (meas == 2)):
             measurement = "M3"
-        elif ((meas == 1) or (meas == 3)):
+        elif ((meas == 1) or (meas == 3) or (meas == 4)):
             measurement = "M1"
 
         if (unit == 0):
@@ -629,6 +735,10 @@ class HP8903BWindow(Gtk.Window):
         if (self.start_freq.get_value() > self.stop_freq.get_value()):
             self.start_freq.set_value(self.stop_freq.get_value())
 
+    def volt_callback(self, spinb):
+        if (self.start_v.get_value() > self.stop_v.get_value()):
+            self.start_v.set_value(self.stop_v.get_value())
+
     # 30k/80k toggle
     def filter1_callback(self, cb):
         if (cb.get_active()):
@@ -656,26 +766,65 @@ class HP8903BWindow(Gtk.Window):
             self.units_combo.set_model(self.thd_units_store)
             self.units_combo.set_active(0)
             self.a.set_ylabel("THD+n (%)")
+            self.a.set_xlabel("Frequency (Hz)")            
             self.canvas.draw()
             self.freq.set_sensitive(False)
+            self.source.set_sensitive(True)
+            for w in self.freq_sweep_widgets:
+                w.set_sensitive(True)
+            for w in self.vsweep_widgets:
+                w.set_sensitive(False)
         elif (meas_ind == 1):
             self.units_combo.set_model(self.ampl_units_store)
             self.units_combo.set_active(0)
             self.a.set_ylabel("AC Level (V RMS)")
+            self.a.set_xlabel("Frequency (Hz)")            
             self.canvas.draw()
             self.freq.set_sensitive(False)
+            self.source.set_sensitive(True)
+            for w in self.freq_sweep_widgets:
+                w.set_sensitive(True)
+            for w in self.vsweep_widgets:
+                w.set_sensitive(False)
         elif (meas_ind == 2):
             self.units_combo.set_model(self.thdr_units_store)
             self.units_combo.set_active(0)
             self.a.set_ylabel("THD+n Ratio (%)")
+            self.a.set_xlabel("Frequency (Hz)")
             self.canvas.draw()
             self.freq.set_sensitive(True)
+            self.source.set_sensitive(True)
+            for w in self.freq_sweep_widgets:
+                w.set_sensitive(True)
+            for w in self.vsweep_widgets:
+                w.set_sensitive(False)
         elif (meas_ind == 3):
             self.units_combo.set_model(self.amplr_units_store)
             self.units_combo.set_active(0)
             self.a.set_ylabel("AC Level Ratio (%)")
+            self.a.set_xlabel("Frequency (Hz)")
             self.canvas.draw()
             self.freq.set_sensitive(True)
+            self.source.set_sensitive(True)
+            for w in self.freq_sweep_widgets:
+                w.set_sensitive(True)
+            for w in self.vsweep_widgets:
+                w.set_sensitive(False)
+        elif (meas_ind == 4):
+            self.units_combo.set_model(self.optlvl_units_store)
+            self.units_combo.set_active(0)
+            self.a.set_ylabel("Output Level (V)")
+            self.a.set_xlabel("Input Level (V)")
+            self.canvas.draw()
+            self.freq.set_sensitive(True)
+            self.source.set_sensitive(False)
+            for w in self.freq_sweep_widgets:
+                w.set_sensitive(False)
+            for w in self.vsweep_widgets:
+                w.set_sensitive(True)
+
+
+            
 
 
     def units_changed(self, widget):
