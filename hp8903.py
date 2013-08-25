@@ -601,21 +601,19 @@ class HP8903BWindow(Gtk.Window):
             w.set_sensitive(True)
         for w in self.filter_widgets:
             w.set_sensitive(True)
-            
-        # for w in self.freq_sweep_widgets:
-        #     w.set_sensitive(True)
-        # for w in self.source_widgets:
-        #     w.set_sensitive(True)
-        # for w in self.filter_widgets:
-        #     w.set_sensitive(True)
-        # for w in self.vsweep_widgets:
-        #     w.set_sensitive(True)
 
-        # if (meas > 1):
-        #     self.freq.set_sensitive(True)
+        if ((meas < 4) and (meas >= 0)):
+            for w in self.freq_sweep_widgets:
+                w.set_sensitive(True)
+            for w in self.source_widgets:
+                w.set_sensitive(True)
+        if (meas == 4):
+            for w in self.vsweep_widgets:
+                w.set_sensitive(True)
 
-        self.meas_changed("")
-        
+        if (meas > 1):
+            self.freq.set_sensitive(True)
+
         self.run_button.set_sensitive(True)
         self.action_filesave.set_sensitive(True)
 
