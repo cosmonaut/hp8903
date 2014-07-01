@@ -119,8 +119,9 @@ class HP8903BWindow(Gtk.Window):
         left_vbox.pack_start(con_hbox, False, False, 0)
         
         device_store = Gtk.ListStore(int, str)
-        for i in range(len(self.devices)):
-            device_store.append([i, self.devices[i][0]])
+
+        for i, dev in enumerate(self.devices):
+            device_store.append([i, dev[0]])
         self.device_combo = Gtk.ComboBox.new_with_model_and_entry(device_store)
         self.device_combo.set_entry_text_column(1)
         self.device_combo.set_active(0)
