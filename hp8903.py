@@ -13,6 +13,7 @@ import serial.tools.list_ports as list_ports
 
 import math
 import numpy as np
+import time
 #from numpy import arange, sin, pi
 
 # This is just for the GPIB-232CV-A -- may not apply for other GPIB
@@ -470,8 +471,6 @@ class HP8903BWindow(Gtk.Window):
         except:
             Exception("Failed to open serial device")
 
-
-
     def close_serial(self, button):
         self.con_button.set_sensitive(True)
         self.device_combo.set_sensitive(True)
@@ -706,6 +705,8 @@ class HP8903BWindow(Gtk.Window):
             #print(ser.inWaiting())
             while Gtk.events_pending():
                  Gtk.main_iteration_do(False)
+            time.sleep(0.01)
+
 
         samp = self.ser.read(self.ser.inWaiting())
         sampf = float(samp)
