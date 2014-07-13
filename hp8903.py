@@ -14,11 +14,8 @@ import serial.tools.list_ports as list_ports
 import math
 import numpy as np
 import time
-#from numpy import arange, sin, pi
+from datetime import datetime
 
-# This is just for the GPIB-232CV-A -- may not apply for other GPIB
-# interfaces
-HP8903_BAUD = 38400
 
 UI_INFO = """
 <ui>
@@ -57,12 +54,385 @@ HP8903_filters = ["30 kHz Low Pass",
                   "Left Plug-in Filter",
                   "Right Plug-in Filter"]
 
+
+class GPIBDevice():
+    def __init__(self, gpib_addr = None):
+        """Initiazlize GPIB device class"""
+        self.dev = None
+        self.dev_name = None
+        self.ser = None
+        # GPIB address of HP 8903
+        self.gpib_addr = gpib_addr
+
+    def open(self, dev_name):
+        """Open device"""
+        # Impossible to open generic device!
+        return(False)
+
+    def is_open(self):
+        """Test to see if GPIB communication device is open"""
+        # Impossible to open generic device!
+        return(False)
+
+    def _set_dev_name(self, dev_name):
+        device_name = str(dev_name)
+        self.dev_name = device_name
+
+    def close(self):
+        """Close device"""
+        pass
+
+    def write(self, data):
+        """Write to GPIB endpoint"""
+        pass
+
+    # Blocking with timeout
+    def read(self, msg_len = 0, timeout = 500, end_char = '\n'):
+        """Read data from GPIB device
+
+        If msg_len is 0, read until end_char with timeout.
+        If msg_len > 0 read until msg_len chars are received or until timeout."""
+        return('')
+
+    def flush_input(self):
+        """Flush device input buffer"""
+        pass
+
+    def _command(self, cmd):
+        """Write a command to the GPIB communication device"""
+        pass
+
+    def test(self):
+        """Test GPIB communication device"""
+        return(True)
+
+    def status(self):
+        """Get GPIB communication device status"""
+        pass
+
+    def name(self):
+        """Name of GPIB communication device"""
+        return("Generic GPIB device""")
+
+    def implements_addr(self):
+        """Does this implement GPIB address setting?"""
+        return(False)
+
+
+class NI_GPIB_232CV_A(GPIBDevice):
+    def __init__(self, gpib_addr = None):
+        # Address on this device only set by dip switches (lame!)
+
+        self.dev_name = None
+        self.ser = None
+        # Fastest baud this device can do...
+        self.baud = 38400
+        self.buffer = ''
+        self.gpib_addr = gpib_addr
+
+    def open(self, dev_name):
+        self._set_dev_name(dev_name)
+
+        print("Connecting to: %s" % self.dev_name)
+
+        self.ser = serial.Serial(self.dev_name,
+                                 self.baud,
+                                 bytesize = serial.SEVENBITS,
+                                 stopbits = serial.STOPBITS_ONE,
+                                 parity = serial.PARITY_NONE,
+                                 timeout = 0)
+
+        if (self.is_open()):
+            self.ser.flushInput()
+        else:
+            return(False)
+
+        return(True)
+
+    def is_open(self):
+        if (self.ser):
+            if (self.ser.isOpen()):
+                return(True)
+            else:
+                return(False)
+
+        return(False)
+
+    def close(self):
+        if (self.is_open()):
+            self.ser.close()
+
+        return(True)
+
+    def write(self, data):
+        if (self.is_open()):
+            ret = self.ser.write(data)
+        else:
+            # Error!
+            print("%s failed write" % self.name())
+            return(0)
+
+        return(ret)
+
+    def read(self, msg_len = 0, timeout = 500, end_char = '\n'):
+        if (not self.is_open()):
+            return((False, None))
+
+        self.buffer = ''
+
+        start = datetime.now()
+        if (msg_len <= 0):
+            while(True):
+                # read... until newline
+                w = self.ser.inWaiting()
+                if (w > 0):
+                    for i in range(w):
+                        c = self.ser.read(1)
+                        if (c == end_char):
+                            # done!
+                            self.buffer += c
+                            temp_buf = self.buffer
+                            self.buffer = ''
+                            return((True, temp_buf))
+                        else:
+                            self.buffer += c
+
+                delta = datetime.now() - start
+                if ((delta.total_seconds()*1000.0) >= timeout):
+                    return((False, None))
+
+                # Keep GUI active
+                while Gtk.events_pending():
+                    Gtk.main_iteration_do(False)
+
+        else:
+            r = 0
+            while(True):
+                w = self.ser.inWaiting()
+                if (w > 0):
+                    if (w >= msg_len):
+                        self.buffer = self.ser.read(msg_len)
+                        return((True, self.buffer))
+                    else:
+                        self.buffer += self.ser.read(w)
+                        r += w
+                        if (r >= msg_len):
+                            # Received complete message
+                            temp_buf = self.buffer[0:msg_len]
+                            self.buffer = ''
+                            return((True, temp_buf))
+
+                delta = datetime.now() - start
+                if ((delta.total_seconds()*1000.0) >= timeout):
+                    return((False, None))
+
+                # Keep GUI active
+                while Gtk.events_pending():
+                    Gtk.main_iteration_do(False)
+
+    def flush_input(self):
+        if (self.is_open()):
+            self.ser.flushInput()
+
+        return(True)
+
+    # Can't implement command...
+    def _command(self, cmd):
+        return(False)
+
+    def test(self):
+        # Not much to do on this device...
+        return(self.is_open())
+
+    def status(self):
+        if (self.is_open()):
+            return((True, "Serial device open"))
+        else:
+            return((False, "Serial device not open"))
+
+    def name(self):
+        return("National Instruments GPIB-232CV-A")
+
+
+class Galvant_GPIB_USB(GPIBDevice):
+    def __init__(self, gpib_addr = 0):
+        self.gpib_addr = int(gpib_addr)
+        self.dev_name = None
+        self.ser = None
+        self.baud = 460800
+
+    def open(self, dev_name):
+        self._set_dev_name(dev_name)
+
+        print("Connecting to: %s" % self.dev_name)
+
+        self.ser = serial.Serial(self.dev_name,
+                                 self.baud,
+                                 bytesize = serial.EIGHTBITS,
+                                 stopbits = serial.STOPBITS_ONE,
+                                 parity = serial.PARITY_NONE)
+
+        if (self.is_open()):
+            self.ser.flushInput()
+
+            # Note \n's are added by write()
+
+            self._command("++auto 0")
+            time.sleep(0.02)
+            # The 8903 can be quite slow...
+            self._command("++read_tmo_ms 2500")
+            time.sleep(0.02)
+            # Set \r\n to be appended to output, read will look for this in data.
+            self._command("++eos 0")
+            time.sleep(0.02)
+            self._command("++ifc")
+            time.sleep(0.02)
+            # Set HP 8903 address address
+            addr_command = "++addr " + str(self.gpib_addr)
+            self._command(addr_command)
+            time.sleep(0.1)
+            # remote addressed mode
+            self._command("++llo")
+            print(addr_command)
+        else:
+            return(False)
+
+        return(True)
+
+    def is_open(self):
+        if (self.ser):
+            if (self.ser.isOpen()):
+                return(True)
+            else:
+                return(False)
+
+        return(False)
+
+    def close(self):
+        if (self.is_open()):
+            # clearage
+            self._command("++ifc")
+            # Return instrument to local control
+            self._command("++loc")
+
+            self.ser.close()
+
+        return(True)
+
+    def write(self, data):
+        # Galvant device requires a \n after any write to controller
+        data += "\n"
+
+        if (self.is_open()):
+            ret = self.ser.write(data)
+        else:
+            # Error!
+            print("%s failed write" % self.name())
+            return(0)
+
+        return(ret)
+
+    def read(self, msg_len = 0, timeout = 500, end_char = '\r'):
+        if (not self.is_open()):
+            return((False, None))
+
+        self.buffer = ''
+
+        # Command adapter to read until EOS is reached
+        self._command("++read\n")
+
+        start = datetime.now()
+        if (msg_len <= 0):
+            while(True):
+                # read... until newline
+                w = self.ser.inWaiting()
+                if (w > 0):
+                    for i in range(w):
+                        c = self.ser.read(1)
+                        if (c == end_char):
+                            # done!
+                            self.buffer += c
+                            temp_buf = self.buffer
+                            self.buffer = ''
+                            return((True, temp_buf))
+                        else:
+                            self.buffer += c
+
+                delta = datetime.now() - start
+                if ((delta.total_seconds()*1000.0) >= timeout):
+                    return((False, None))
+
+                # Keep GUI active
+                while Gtk.events_pending():
+                    Gtk.main_iteration_do(False)
+
+        else:
+            r = 0
+            while(True):
+                w = self.ser.inWaiting()
+                if (w > 0):
+                    if (w >= msg_len):
+                        self.buffer = self.ser.read(msg_len)
+                        return((True, self.buffer))
+                    else:
+                        self.buffer += self.ser.read(w)
+                        r += w
+                        if (r >= msg_len):
+                            # Received complete message
+                            temp_buf = self.buffer[0:msg_len]
+                            self.buffer = ''
+                            return((True, temp_buf))
+
+                delta = datetime.now() - start
+                if ((delta.total_seconds()*1000.0) >= timeout):
+                    return((False, None))
+
+                # Keep GUI active
+                while Gtk.events_pending():
+                    Gtk.main_iteration_do(False)
+
+    def _command(self, cmd):
+        ret = self.write(cmd)
+        return(ret)
+
+    def test(self):
+        r = self._command("++ver")
+        if (r != 6):
+            return(False)
+
+        # if first 7 chars are "Version" pass!
+        status, msg = self.read(timeout = 1000, end_char = '\r')
+        print("%s Version: %s" % (self.name(), msg))
+        if (status):
+            if (len(msg) >= 7):
+                if (msg[0:7] == "Version"):
+                    return(True)
+
+        return(False)
+
+    def status(self):
+        # Not implemented here for now...
+        return(True)
+
+    def name(self):
+        return("Galvant GPIB USB Adapter")
+
+    def implements_addr(self):
+        return(True)
+
+
+# Add thisto HP8903BWindow
+HP8903_GPIB_devices = [(Galvant_GPIB_USB, "Galvant GPIB USB Adapter"),
+                       (NI_GPIB_232CV_A, "National Instruments GPIB-232CV-A")]
+
+
 class HP8903BWindow(Gtk.Window):
     def __init__(self):
         Gtk.Window.__init__(self, title="HP 8903B Control")
 
         # Serial connection!
         self.ser = None
+        self.gpib_dev = None
         self.devices = list_ports.comports()
         
         # Menu Bar junk!
@@ -97,12 +467,53 @@ class HP8903BWindow(Gtk.Window):
         self.master_vbox.pack_start(self.hbox, True, True, 0)
 
         self.master_vbox.pack_start(self.status_bar, False, False, 0)
-        
+
+        # Begin controls
         bframe = Gtk.Frame(label = "Control")
         left_vbox = Gtk.Box(spacing = 2, orientation = 'vertical')
         self.box = Gtk.Box(spacing = 2)
 
         bframe.add(left_vbox)
+
+        # GPIB device selector
+        gpib_frame = Gtk.Frame(label = "GPIB Communication Device")
+        self.gpib_big_box = Gtk.Box(spacing = 2)
+        gpib_frame.add(self.gpib_big_box)
+        self.gpib_box = Gtk.Box(spacing = 2)
+        self.gpib_vbox = Gtk.Box(spacing = 2, orientation = 'vertical')
+        gpib_label = Gtk.Label("GPIB Device: ")
+        self.gpib_box.pack_start(gpib_label, False, False, 0)
+
+        gpib_store = Gtk.ListStore(int, str)
+        for n, g_dev in enumerate(HP8903_GPIB_devices):
+            gpib_store.append([n, g_dev[1]])
+        self.gpib_combo = Gtk.ComboBox.new_with_model_and_entry(gpib_store)
+        self.gpib_combo.set_entry_text_column(1)
+        self.gpib_combo.set_active(0)
+
+        self.gpib_box.pack_start(self.gpib_combo, False, False, 0)
+
+        gpib_addr_box = Gtk.Box(spacing = 2)
+
+        self.gpib_addr = Gtk.SpinButton()
+        self.gpib_addr.set_range(0, 30)
+        self.gpib_addr.set_digits(0)
+        self.gpib_addr.set_value(0)
+        self.gpib_addr.set_increments(1.0, 1.0)
+
+
+        gpib_addr_label = Gtk.Label("GPIB Address: ")
+        gpib_addr_box.pack_start(gpib_addr_label, False, False, 0)
+        gpib_addr_box.pack_start(self.gpib_addr, False, False, 0)
+
+        self.gpib_vbox.pack_start(self.gpib_box, False, False, 0)
+        self.gpib_vbox.pack_start(gpib_addr_box, False, False, 0)
+
+        self.gpib_big_box.pack_start(self.gpib_vbox, False, False, 0)
+
+        left_vbox.pack_start(gpib_frame, False, False, 0)
+
+        # Device items
         left_vbox.pack_start(self.box, False, False, 0)
 
         self.hbox.pack_start(bframe, False, False, 0)
@@ -111,8 +522,8 @@ class HP8903BWindow(Gtk.Window):
         self.con_button = Gtk.Button(label = "Connect")
         self.dcon_button = Gtk.Button(label = "Disconnect")
 
-        self.con_button.connect("clicked", self.setup_serial)
-        self.dcon_button.connect("clicked", self.close_serial)
+        self.con_button.connect("clicked", self.setup_gpib)
+        self.dcon_button.connect("clicked", self.close_gpib)
         
         con_hbox.pack_start(self.con_button, False, False, 0)
         con_hbox.pack_start(self.dcon_button, False, False, 0)
@@ -431,53 +842,120 @@ class HP8903BWindow(Gtk.Window):
         self.units_string = "%"
         self.measurements = None
 
-    def setup_serial(self, button):
-        #print("serial!")
+    def setup_gpib(self, button):
+        # Get GPIB info
+        gpib_model = self.gpib_combo.get_model()
+        gpib_tree_iter = self.gpib_combo.get_active_iter()
+
+        # Get address
+        gpib_addr = self.gpib_addr.get_value_as_int()
+
+        # Instantiate GPIB Device class
+        self.gpib_dev = HP8903_GPIB_devices[gpib_model[gpib_tree_iter][0]][0](gpib_addr = gpib_addr)
+        print("Using GPIB Device: %s" % self.gpib_dev.name())
+        print("Using GPIB Address: %s" % str(gpib_addr))
+
+        if (not self.gpib_dev.implements_addr()):
+            print("Warning: this GPIB communication device does not implement")
+            print("    address setting, check your hardware's settings!")
+
+        # Get device info
         model = self.device_combo.get_model()
 
         tree_iter = self.device_combo.get_active_iter()
 
-        print(model[tree_iter][1])
+        print("Device: %s" % model[tree_iter][1])
+        dev_name = model[tree_iter][1]
+
+        # Disable gpib and devices buttons
         self.con_button.set_sensitive(False)
         self.device_combo.set_sensitive(False)
-
-        try:
-            self.ser = serial.Serial(model[tree_iter][1],
-                                     HP8903_BAUD,
-                                     bytesize = serial.SEVENBITS,
-                                     stopbits = serial.STOPBITS_ONE,
-                                     parity = serial.PARITY_NONE)
-
-            self.ser.flushInput()
-            
-            self.init_hp8903()
-
-            self.run_button.set_sensitive(True)
-            for w in self.measurement_widgets:
-                w.set_sensitive(True)
-            for w in self.freq_sweep_widgets:
-                w.set_sensitive(True)
-            for w in self.source_widgets:
-                w.set_sensitive(True)
-            for w in self.filter_widgets:
-                w.set_sensitive(True)
-            for w in self.vsweep_widgets:
-                w.set_sensitive(False)
-
-            #self.freq.set_sensitive(True)
+        self.gpib_combo.set_sensitive(False)
+        self.gpib_addr.set_sensitive(False)
 
 
+        if(not self.gpib_dev.open(dev_name)):
+            # Make into warning window?
+            print("Failed to open GPIB Device: %s at %s" % (self.gpib_dev.name(), dev_name))
+            print("Verify hardware setup and try to connect again")
 
-        except:
-            Exception("Failed to open serial device")
+            self.con_button.set_sensitive(True)
+            self.device_combo.set_sensitive(True)
+            self.gpib_combo.set_sensitive(True)
+            self.gpib_addr.set_sensitive(True)
 
-    def close_serial(self, button):
+            return(False)
+
+        # Do test?
+        if (not self.gpib_dev.test()):
+            print("GPIB device failed self test: %s at %s" % (self.gpib_dev.name(), dev_name))
+            print("Verify hardware setup and try to connect again")
+
+            self.con_button.set_sensitive(True)
+            self.device_combo.set_sensitive(True)
+            self.gpib_combo.set_sensitive(True)
+            self.gpib_addr.set_sensitive(True)
+
+            return(False)
+
+
+        if (self.gpib_dev.is_open()):
+            self.gpib_dev.flush_input()
+            # Initialize the HP 8903
+            status = self.init_hp8903()
+            if (not status):
+                print("Failed to initialize HP 8903")
+                print("Verify hardware setup and try to connect again")
+
+                self.gpib_dev.close()
+
+                self.con_button.set_sensitive(True)
+                self.device_combo.set_sensitive(True)
+                self.gpib_combo.set_sensitive(True)
+                self.gpib_addr.set_sensitive(True)
+
+                return(False)
+
+        else:
+            print("Failed to use GPIB device")
+            print("Verify hardware setup and try to connect again")
+
+            self.gpib_dev.close()
+
+            self.con_button.set_sensitive(True)
+            self.device_combo.set_sensitive(True)
+            self.gpib_combo.set_sensitive(True)
+            self.gpib_addr.set_sensitive(True)
+
+            return(False)
+
+        # Enable measurement controls
+        self.run_button.set_sensitive(True)
+        for w in self.measurement_widgets:
+            w.set_sensitive(True)
+        for w in self.freq_sweep_widgets:
+            w.set_sensitive(True)
+        for w in self.source_widgets:
+            w.set_sensitive(True)
+        for w in self.filter_widgets:
+            w.set_sensitive(True)
+        for w in self.vsweep_widgets:
+            w.set_sensitive(False)
+
+
+        self.status_bar.push(0, "Connected to  HP 8903, ready for measurements")
+
+    def close_gpib(self, button):
+        if (self.gpib_dev):
+            self.gpib_dev.close()
+
+        # Activate device/connection buttons
         self.con_button.set_sensitive(True)
         self.device_combo.set_sensitive(True)
+        self.gpib_combo.set_sensitive(True)
+        self.gpib_addr.set_sensitive(True)
 
-        if (self.ser != None):
-            self.ser.close()
-
+        # Disable measurement controls
         for w in self.measurement_widgets:
             w.set_sensitive(False)
         for w in self.freq_sweep_widgets:
@@ -490,7 +968,7 @@ class HP8903BWindow(Gtk.Window):
             w.set_sensitive(False)
 
         self.freq.set_sensitive(False)
-            
+
         self.run_button.set_sensitive(False)
 
     def run_test(self, button):
@@ -641,18 +1119,19 @@ class HP8903BWindow(Gtk.Window):
         self.canvas.draw()
             
     def init_hp8903(self):
-        self.ser.flushInput()
-        if (self.ser != None):
-            self.ser.write("FR1000.0HZAP0.100E+00VLM1LNL0LNT3")
-        while (self.ser.inWaiting() < 12):
-            while Gtk.events_pending():
-                Gtk.main_iteration_do(False)
+        self.gpib_dev.flush_input()
+        # Arbitrary but simple measurement to check device
+        self.gpib_dev.write("FR1000.0HZAP0.100E+00VLM1LNL0LNT3")
+        status, meas = self.gpib_dev.read(msg_len = 12, timeout = 5000)
 
-        meas = self.ser.read(self.ser.inWaiting())
-        print(meas)
-        #print(float(meas))
-        print("HP 8903B Initialized")
-        
+        if (status):
+            print(meas)
+        else:
+            print("Failed to initialize HP8903!")
+            print(status, meas)
+            return(False)
+
+        return(True)
         
     def send_measurement(self, meas, unit, freq, amp, filters, ratio = 0):
         # Store parameters for saving after any measure
@@ -700,16 +1179,16 @@ class HP8903BWindow(Gtk.Window):
         #print("FR%.4EHZAP1VLM1LNL0LNT3" % freq)
         #print("FR%.4EHZAP%.4EVLM3LNL0LNT3" % (freq, amp))
         #self.ser.write(("FR%.4EHZAP%.4EVLM3LNL2LNT3" % (freq, amp)))
-        self.ser.write(payload)
-        while (self.ser.inWaiting() < 12):
-            #print(ser.inWaiting())
-            while Gtk.events_pending():
-                 Gtk.main_iteration_do(False)
-            time.sleep(0.01)
 
+        # Send and read measurement via GPIB controller
+        self.gpib_dev.write(payload)
+        status, samp = self.gpib_dev.read(timeout = 2500)
+        if (status):
+            sampf = float(samp)
+        else:
+            sampf = np.NAN
+            print("Failed to get sample")
 
-        samp = self.ser.read(self.ser.inWaiting())
-        sampf = float(samp)
         if (sampf > 4.0e9):
             print(("Error: %s" % samp[4:6]) + " " + HP8903_errors[int(samp[4:6])])
             samp = np.NAN
@@ -762,8 +1241,8 @@ class HP8903BWindow(Gtk.Window):
                 self.lpi.set_active(False)
 
     def on_menu_file_quit(self, widget):
-        if (self.ser != None):
-            self.ser.close()
+        if (self.gpib_dev):
+            self.gpib_dev.close()
         Gtk.main_quit()
 
     def meas_changed(self, widget):
